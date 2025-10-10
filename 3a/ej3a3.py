@@ -2,11 +2,11 @@
 Enunciado:
 En este ejercicio aprenderás a trabajar con bases de datos SQLite existentes.
 Aprenderás a:
-1. Abrir y ejecutar un archivo SQL en SQLite
+1. Conectar a una base de datos SQLite existente
 2. Convertir datos de SQLite a formatos compatibles con JSON
 3. Extraer datos de SQLite a pandas DataFrame
 
-El archivo ventas_comerciales.sql contiene datos de ventas con tablas relacionadas
+El archivo ventas_comerciales.db contiene datos de ventas con tablas relacionadas
 que incluyen productos, vendedores, regiones y ventas. Debes analizar estos datos
 usando diferentes técnicas.
 """
@@ -17,25 +17,21 @@ import os
 import json
 from typing import List, Dict, Any, Optional, Tuple, Union
 
-# Ruta al archivo SQL
-SQL_FILE_PATH = os.path.join(os.path.dirname(__file__), 'ventas_comerciales.sql')
-# Ruta para la base de datos SQLite (puedes cambiarla si deseas)
+# Ruta a la base de datos SQLite
 DB_PATH = os.path.join(os.path.dirname(__file__), 'ventas_comerciales.db')
 
-def crear_bd_desde_sql() -> sqlite3.Connection:
+def conectar_bd() -> sqlite3.Connection:
     """
-    Crea una base de datos SQLite a partir del archivo SQL
+    Conecta a una base de datos SQLite existente
 
     Returns:
         sqlite3.Connection: Objeto de conexión a la base de datos SQLite
     """
-    # Implementa aquí la creación de la base de datos:
-    # 1. Si el archivo de base de datos existe, elimínalo para empezar desde cero
-    # 2. Conecta a la base de datos (se creará si no existe)
-    # 3. Lee el contenido del archivo SQL
-    # 4. Ejecuta el script SQL completo
-    # 5. Haz commit de los cambios
-    # 6. Devuelve la conexión
+    # Implementa aquí la conexión a la base de datos:
+    # 1. Verifica que el archivo de base de datos existe
+    # 2. Conecta a la base de datos
+    # 3. Configura la conexión para que devuelva las filas como diccionarios (opcional)
+    # 4. Retorna la conexión
     pass
 
 def convertir_a_json(conexion: sqlite3.Connection) -> Dict[str, List[Dict[str, Any]]]:
@@ -84,10 +80,10 @@ def convertir_a_dataframes(conexion: sqlite3.Connection) -> Dict[str, pd.DataFra
 
 if __name__ == "__main__":
     try:
-        # Crea la base de datos desde el archivo SQL
-        print("Creando base de datos desde el archivo SQL...")
-        conexion = crear_bd_desde_sql()
-        print("Base de datos creada correctamente.")
+        # Conectar a la base de datos existente
+        print("Conectando a la base de datos...")
+        conexion = conectar_bd()
+        print("Conexión establecida correctamente.")
 
         # Verificar la conexión mostrando las tablas disponibles
         cursor = conexion.cursor()

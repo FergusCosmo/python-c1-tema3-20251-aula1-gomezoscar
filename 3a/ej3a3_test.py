@@ -8,20 +8,109 @@ import sqlite3
 import os
 import json
 import pandas as pd
-from ej3a3 import crear_bd_desde_sql, convertir_a_json, convertir_a_dataframes
+from ej3a3 import conectar_bd, convertir_a_json, convertir_a_dataframes
 
-# Path to ventas_comerciales SQL script and database
-SQL_FILE_PATH = os.path.join(os.path.dirname(__file__), 'ventas_comerciales.sql')
+# Path to database file
 DB_PATH = os.path.join(os.path.dirname(__file__), 'ventas_comerciales.db')
+
+# Crear una base de datos de prueba si no existe
+@pytest.fixture(scope="session", autouse=True)
+def crear_db_prueba():
+    """
+    Fixture que crea una base de datos de prueba si no existe
+    para permitir que los tests se ejecuten correctamente
+    """
+    # Si la base de datos no existe, la creamos con datos de prueba
+    if not os.path.exists(DB_PATH):
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        # Crear tablas
+        cursor.execute('''
+            CREATE TABLE productos (
+                id INTEGER PRIMARY KEY,
+                nombre TEXT NOT NULL,
+                categoria TEXT NOT NULL,
+                precio_unitario REAL NOT NULL
+            )
+        ''')
+
+        cursor.execute('''
+            CREATE TABLE regiones (
+                id INTEGER PRIMARY KEY,
+                nombre TEXT NOT NULL,
+                pais TEXT NOT NULL
+            )
+        ''')
+
+        cursor.execute('''
+            CREATE TABLE vendedores (
+                id INTEGER PRIMARY KEY,
+                nombre TEXT NOT NULL,
+                region_id INTEGER NOT NULL,
+                FOREIGN KEY (region_id) REFERENCES regiones(id)
+            )
+        ''')
+
+        cursor.execute('''
+            CREATE TABLE ventas (
+                id INTEGER PRIMARY KEY,
+                fecha TEXT NOT NULL,
+                producto_id INTEGER NOT NULL,
+                vendedor_id INTEGER NOT NULL,
+                cantidad INTEGER NOT NULL,
+                FOREIGN KEY (producto_id) REFERENCES productos(id),
+                FOREIGN KEY (vendedor_id) REFERENCES vendedores(id)
+            )
+        ''')
+
+        # Insertar datos de prueba
+        cursor.executemany(
+            "INSERT INTO productos VALUES (?, ?, ?, ?)",
+            [
+                (1, "Laptop", "Electrónica", 1200.00),
+                (2, "Smartphone", "Electrónica", 800.00),
+                (3, "Escritorio", "Muebles", 350.00)
+            ]
+        )
+
+        cursor.executemany(
+            "INSERT INTO regiones VALUES (?, ?, ?)",
+            [
+                (1, "Norte", "España"),
+                (2, "Centro", "España")
+            ]
+        )
+
+        cursor.executemany(
+            "INSERT INTO vendedores VALUES (?, ?, ?)",
+            [
+                (1, "Ana Martínez", 1),
+                (2, "Carlos López", 2)
+            ]
+        )
+
+        cursor.executemany(
+            "INSERT INTO ventas VALUES (?, ?, ?, ?, ?)",
+            [
+                (1, "2024-03-15", 1, 1, 2),
+                (2, "2024-03-18", 2, 1, 3),
+                (3, "2024-03-20", 3, 2, 1),
+                (4, "2024-04-01", 1, 2, 1)
+            ]
+        )
+
+        conn.commit()
+        conn.close()
 
 @pytest.fixture
 def conexion_bd():
     """
     Fixture que obtiene una conexión a la base de datos utilizando la función
-    crear_bd_desde_sql implementada por el estudiante
+    conectar_bd implementada por el estudiante
     """
-    # Llamar a la función del estudiante que debe crear la conexión
-    conn = crear_bd_desde_sql()
+    # Llamar a la función del estudiante que debe conectar a la BD
+    conn = conectar_bd()
 
     yield conn
     
@@ -29,21 +118,14 @@ def conexion_bd():
     if conn:
         conn.close()
 
-    # Eliminar el archivo de BD después de las pruebas
-    if os.path.exists(DB_PATH):
-        try:
-            os.remove(DB_PATH)
-        except:
-            pass
-
-def test_crear_bd_desde_sql():
+def test_conectar_bd():
     """
-    Prueba la función crear_bd_desde_sql
+    Prueba la función conectar_bd
     Verifica que devuelve una conexión válida a la base de datos SQLite
     """
-    # Llamar a la función que debe crear la BD
-    conn = crear_bd_desde_sql()
-    
+    # Llamar a la función que debe conectar a la BD
+    conn = conectar_bd()
+
     try:
         # Verificar que retorna un objeto conexión
         assert conn is not None
@@ -62,19 +144,12 @@ def test_crear_bd_desde_sql():
         if conn:
             conn.close()
 
-        # Eliminar la BD para limpieza
-        if os.path.exists(DB_PATH):
-            try:
-                os.remove(DB_PATH)
-            except:
-                pass
-
-def test_crear_bd_desde_sql_data():
+def test_conectar_bd_data():
     """
-    Prueba el contenido de datos de la base de datos creada con crear_bd_desde_sql
+    Prueba el acceso a los datos de la base de datos usando conectar_bd
     Verifica que la base contiene las tablas y relaciones esperadas
     """
-    conn = crear_bd_desde_sql()
+    conn = conectar_bd()
 
     try:
         cursor = conn.cursor()
@@ -114,13 +189,6 @@ def test_crear_bd_desde_sql_data():
         # Cerrar la conexión
         if conn:
             conn.close()
-
-        # Eliminar la BD para limpieza
-        if os.path.exists(DB_PATH):
-            try:
-                os.remove(DB_PATH)
-            except:
-                pass
 
 def test_convertir_a_json(conexion_bd):
     """
