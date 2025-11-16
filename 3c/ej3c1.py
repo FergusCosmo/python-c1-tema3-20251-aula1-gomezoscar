@@ -41,8 +41,30 @@ def auth_required(func):
         4. Si coincide, ejecutar la función original
         5. Si no coincide o hay algún error, devolver un error 401 Unauthorized
         """
-        # TODO: Implementa la lógica del decorador según las instrucciones
-        pass
+        # Extraer el token de la cabecera 'Authorization'
+        auth_header = request.headers.get('Authorization')
+
+        if not auth_header:
+            # Si no hay cabecera de autorización, devolver error 401
+            return jsonify({"error": "Token inválido o ausente"}), 401
+
+        try:
+            # Verificar que el formato sea 'Bearer TOKEN'
+            token_type, token = auth_header.split(' ', 1)
+            if token_type.lower() != 'bearer':
+                return jsonify({"error": "Token inválido o ausente"}), 401
+
+            # Comprobar que el token coincide con API_TOKEN
+            if token != API_TOKEN:
+                return jsonify({"error": "Token inválido o ausente"}), 401
+
+            # Si coincide, ejecutar la función original
+            return func(*args, **kwargs)
+
+        except ValueError:
+            # Si no se puede dividir la cabecera en dos partes, formato incorrecto
+            return jsonify({"error": "Token inválido o ausente"}), 401
+
     return decorated_function
 
 
@@ -95,8 +117,11 @@ def create_app():
                 "error": "Token inválido o ausente"
             }
         """
-        # TODO: Implementa este endpoint para devolver el mensaje secreto
-        pass
+        # Devuelve el mensaje secreto
+        return jsonify({
+            "message": "¡Has accedido al secreto!",
+            "secret": "La respuesta a la vida, el universo y todo lo demás es 42"
+        })
 
     return app
 
