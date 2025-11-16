@@ -32,37 +32,61 @@ Base = declarative_base()
 class Author(Base):
     # Define la tabla 'authors' con:
     # - __tablename__ para especificar el nombre de la tabla
+    __tablename__ = 'authors'
+
     # - id: clave primaria autoincremental
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
     # - name: nombre del autor (obligatorio)
+    name = Column(String, nullable=False)
+
     # - Una relación con los libros (books) usando relationship
-    pass
+    books = relationship("Book", back_populates="author", cascade="all, delete-orphan")
 
 
 class Book(Base):
     # Define la tabla 'books' con:
     # - __tablename__ para especificar el nombre de la tabla
+    __tablename__ = 'books'
+
     # - id: clave primaria autoincremental
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
     # - title: título del libro (obligatorio)
+    title = Column(String, nullable=False)
+
     # - year: año de publicación (opcional)
+    year = Column(Integer, nullable=True)
+
     # - author_id: clave foránea que relaciona con la tabla 'authors'
+    author_id = Column(Integer, ForeignKey('authors.id'), nullable=False)
+
     # - Una relación con el autor usando relationship
-    pass
+    author = relationship("Author", back_populates="books")
 
 
 # Función para configurar la base de datos
 def setup_database():
     """Configura la base de datos y crea las tablas"""
     # Implementa la creación de tablas en la base de datos usando Base.metadata.create_all()
-    pass
+    Base.metadata.create_all(engine)
 
 
 # Función para crear datos de ejemplo
 def create_sample_data(session):
     """Crea datos de ejemplo en la base de datos"""
     # Crea al menos dos autores
+    autor1 = Author(name="Gabriel García Márquez")
+    autor2 = Author(name="Isabel Allende")
+
     # Crea al menos tres libros asociados a los autores
+    libro1 = Book(title="Cien años de soledad", year=1967, author=autor1)
+    libro2 = Book(title="La casa de los espíritus", year=1982, author=autor2)
+    libro3 = Book(title="El amor en los tiempos del cólera", year=1985, author=autor1)
+
     # Añade todos los objetos a la sesión y haz commit
-    pass
+    session.add_all([autor1, autor2, libro1, libro2, libro3])
+    session.commit()
 
 
 # Funciones para operaciones CRUD
@@ -72,41 +96,69 @@ def create_book(session, title, author_name, year=None):
     Si el autor ya existe, se utiliza el existente
     """
     # Busca si ya existe un autor con ese nombre
+    author = session.query(Author).filter_by(name=author_name).first()
+
     # Si no existe, crea un nuevo autor
+    if not author:
+        author = Author(name=author_name)
+        session.add(author)
+        session.flush()  # Para obtener el ID del nuevo autor
+
     # Crea un nuevo libro asociado al autor
+    book = Book(title=title, year=year, author=author)
+
     # Añade y haz commit a la sesión
+    session.add(book)
+    session.commit()
+
     # Retorna el libro creado
-    pass
+    return book
 
 
 def get_all_books(session):
     """Obtiene todos los libros con sus autores"""
     # Consulta todos los libros y carga también los autores (joinedload)
-    # Retorna la lista de libros
-    pass
+    return session.query(Book).options(joinedload(Book.author)).all()
 
 
 def get_book_by_id(session, book_id):
     """Obtiene un libro específico por su ID"""
     # Busca un libro por su ID y retórnalo
     # Si no existe, retorna None
-    pass
+    return session.query(Book).options(joinedload(Book.author)).filter_by(id=book_id).first()
 
 
 def update_book(session, book_id, new_title=None, new_year=None):
     """Actualiza la información de un libro existente"""
     # Busca el libro por ID
+    book = session.query(Book).filter_by(id=book_id).first()
+
+    # Si no existe, retorna None
+    if not book:
+        return None
+
     # Si existe, actualiza los campos que tienen nuevos valores
+    if new_title is not None:
+        book.title = new_title
+    if new_year is not None:
+        book.year = new_year
+
     # Haz commit a la sesión
-    # Retorna el libro actualizado o None si no existe
-    pass
+    session.commit()
+
+    # Retorna el libro actualizado
+    return book
 
 
 def delete_book(session, book_id):
     """Elimina un libro de la base de datos"""
     # Busca el libro por ID
+    book = session.query(Book).filter_by(id=book_id).first()
+
     # Si existe, elimínalo y haz commit
-    pass
+    if book:
+        session.delete(book)
+        session.commit()
 
 
 def find_books_by_author(session, author_name):
@@ -114,7 +166,7 @@ def find_books_by_author(session, author_name):
     # Consulta los libros uniendo (join) con la tabla de autores
     # Filtra por el nombre del autor
     # Retorna la lista de libros
-    pass
+    return session.query(Book).join(Author).filter(Author.name == author_name).all()
 
 
 # Función principal para demostrar el uso de SQLAlchemy
