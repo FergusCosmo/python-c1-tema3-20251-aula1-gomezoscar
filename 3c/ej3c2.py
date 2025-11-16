@@ -36,13 +36,17 @@ def generate_jwt_token(username):
     Returns:
         str: Token JWT generado
     """
-    # TODO: Implementa este método para generar un token JWT usando la biblioteca PyJWT
     # El token debe incluir:
     # - 'sub' (subject): username
     # - 'iat' (issued at): Tiempo de emisión
     # - 'exp' (expiration): Tiempo de expiración
     # Usa JWT_SECRET_KEY para firmar el token
-    pass
+    payload = {
+        'sub': username,
+        'iat': datetime.datetime.utcnow(),
+        'exp': datetime.datetime.utcnow() + JWT_EXPIRATION_DELTA
+    }
+    return jwt.encode(payload, JWT_SECRET_KEY, algorithm='HS256')
 
 def jwt_required(func):
     """
@@ -66,8 +70,35 @@ def jwt_required(func):
         3. Decodificar y verificar el token usando jwt.decode()
         4. Si hay algún error (token expirado, inválido, etc.), devolver un error apropiado
         """
-        # TODO: Implementa la lógica del decorador según las instrucciones
-        pass
+        # Extraer el token JWT de la cabecera 'Authorization'
+        auth_header = request.headers.get('Authorization')
+
+        if not auth_header:
+            # Si no hay cabecera de autorización, devolver error 401
+            return jsonify({"error": "Token inválido o ausente"}), 401
+
+        try:
+            # Verificar que el formato sea 'Bearer TOKEN'
+            token_type, token = auth_header.split(' ', 1)
+            if token_type.lower() != 'bearer':
+                return jsonify({"error": "Token inválido o ausente"}), 401
+
+            # Decodificar y verificar el token usando jwt.decode()
+            payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=['HS256'])
+
+            # Si no hay errores, continuar con la función original
+            return func(*args, **kwargs)
+
+        except jwt.ExpiredSignatureError:
+            # Token expirado
+            return jsonify({"error": "Token expirado"}), 401
+        except jwt.InvalidTokenError:
+            # Token inválido
+            return jsonify({"error": "Token inválido o ausente"}), 401
+        except ValueError:
+            # Formato incorrecto
+            return jsonify({"error": "Token inválido o ausente"}), 401
+
     return decorated_function
 
 
@@ -125,8 +156,29 @@ def create_app():
                 "error": "Credenciales inválidas"
             }
         """
-        # TODO: Implementa este endpoint según las instrucciones
-        pass
+        # Obtener los datos JSON de la solicitud
+        data = request.get_json()
+
+        if not data or 'username' not in data or 'password' not in data:
+            return jsonify({"error": "Username y password son requeridos"}), 400
+
+        username = data['username']
+        password = data['password']
+
+        # Verificar las credenciales
+        if USER_CREDENTIALS.get(username) == password:
+            # Si son correctas, generar un token JWT
+            token = generate_jwt_token(username)
+            expires_at = datetime.datetime.utcnow() + JWT_EXPIRATION_DELTA
+
+            # Devolver el token y la fecha de expiración
+            return jsonify({
+                "token": token,
+                "expires_at": expires_at.isoformat()
+            })
+        else:
+            # Si no son correctas, devolver error 401
+            return jsonify({"error": "Credenciales inválidas"}), 401
 
     @app.route('/api/secret', methods=['GET'])
     @jwt_required
@@ -153,8 +205,11 @@ def create_app():
                 "error": "Token inválido o ausente"
             }
         """
-        # TODO: Implementa este endpoint según las instrucciones
-        pass
+        # Devuelve el mensaje secreto
+        return jsonify({
+            "message": "¡Has accedido al secreto con JWT!",
+            "secret": "La respuesta a la vida, el universo y todo lo demás es 42"
+        })
 
     return app
 
