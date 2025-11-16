@@ -12,6 +12,20 @@ El archivo test.sql contiene un script que crea una pequeña biblioteca con auto
 Debes crear una base de datos a partir de este script y realizar operaciones sobre ella.
 """
 
+"""
+Enunciado:
+En este ejercicio aprenderás a inicializar una base de datos SQLite a partir de un archivo SQL
+y a realizar operaciones básicas de modificación de datos.
+Aprenderás a:
+1. Crear una base de datos SQLite a partir de un script SQL
+2. Consultar datos usando SQL
+3. Insertar nuevos registros en la base de datos
+4. Actualizar registros existentes
+
+El archivo test.sql contiene un script que crea una pequeña biblioteca con autores y libros.
+Debes crear una base de datos a partir de este script y realizar operaciones sobre ella.
+"""
+
 import sqlite3
 import os
 from typing import List, Tuple, Dict, Any, Optional
