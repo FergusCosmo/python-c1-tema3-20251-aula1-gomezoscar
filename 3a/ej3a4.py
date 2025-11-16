@@ -76,8 +76,11 @@ def crear_conexion() -> pymongo.database.Database:
     """
     Crea y devuelve una conexión a la base de datos MongoDB
     """
-    # TODO: Implementar la conexión a MongoDB
-    pass
+    # Conectar al servidor MongoDB
+    cliente = pymongo.MongoClient(f"mongodb://localhost:{MONGODB_PORT}")
+    # Acceder a la base de datos
+    db = cliente[DB_NAME]
+    return db
 
 def crear_colecciones(db: pymongo.database.Database) -> None:
     """
@@ -88,8 +91,12 @@ def crear_colecciones(db: pymongo.database.Database) -> None:
     Args:
         db: Objeto de conexión a la base de datos MongoDB
     """
-    # TODO: Implementar la creación de colecciones e índices
-    pass
+    # No es necesario crear colecciones explícitamente en MongoDB
+    # Se crean automáticamente al insertar el primer documento
+    # Aquí solo creamos índices para optimizar consultas
+    db["autores"].create_index("nombre")
+    db["libros"].create_index("titulo")
+    db["libros"].create_index("autor_id")
 
 def insertar_autores(db: pymongo.database.Database, autores: List[Tuple[str]]) -> List[str]:
     """
@@ -99,8 +106,9 @@ def insertar_autores(db: pymongo.database.Database, autores: List[Tuple[str]]) -
         db: Objeto de conexión a la base de datos MongoDB
         autores: Lista de tuplas (nombre,)
     """
-    # TODO: Implementar la inserción de autores
-    pass
+    autores_docs = [{"nombre": nombre} for nombre, in autores]
+    resultado = db["autores"].insert_many(autores_docs)
+    return resultado.inserted_ids
 
 def insertar_libros(db: pymongo.database.Database, libros: List[Tuple[str, int, str]]) -> List[str]:
     """
@@ -110,8 +118,9 @@ def insertar_libros(db: pymongo.database.Database, libros: List[Tuple[str, int, 
         db: Objeto de conexión a la base de datos MongoDB
         libros: Lista de tuplas (titulo, anio, autor_id)
     """
-    # TODO: Implementar la inserción de libros
-    pass
+    libros_docs = [{"titulo": titulo, "anio": anio, "autor_id": autor_id} for titulo, anio, autor_id in libros]
+    resultado = db["libros"].insert_many(libros_docs)
+    return resultado.inserted_ids
 
 def consultar_libros(db: pymongo.database.Database) -> None:
     """
@@ -120,8 +129,11 @@ def consultar_libros(db: pymongo.database.Database) -> None:
     Args:
         db: Objeto de conexión a la base de datos MongoDB
     """
-    # TODO: Implementar la consulta de libros con sus autores
-    pass
+    # Hacer una consulta para obtener libros con sus autores
+    for libro in db["libros"].find():
+        autor = db["autores"].find_one({"_id": libro["autor_id"]})
+        autor_nombre = autor["nombre"] if autor else "Desconocido"
+        print(f"- {libro['titulo']} ({libro['anio']}) - {autor_nombre}")
 
 def buscar_libros_por_autor(db: pymongo.database.Database, nombre_autor: str) -> List[Tuple[str, int]]:
     """
@@ -134,8 +146,11 @@ def buscar_libros_por_autor(db: pymongo.database.Database, nombre_autor: str) ->
     Returns:
         Lista de tuplas (titulo, anio)
     """
-    # TODO: Implementar la búsqueda de libros por autor
-    pass
+    autor = db["autores"].find_one({"nombre": nombre_autor})
+    if not autor:
+        return []
+    libros = db["libros"].find({"autor_id": autor["_id"]})
+    return [(libro["titulo"], libro["anio"]) for libro in libros]
 
 def actualizar_libro(
         db: pymongo.database.Database,
@@ -155,8 +170,17 @@ def actualizar_libro(
         `True` si se actualizó correctamente, `False` si no se encontró el libro.
 
     """
-    # TODO: Implementar la actualización de un libro
-    pass
+    update_doc = {}
+    if nuevo_titulo is not None:
+        update_doc["titulo"] = nuevo_titulo
+    if nuevo_anio is not None:
+        update_doc["anio"] = nuevo_anio
+
+    if not update_doc:
+        return True  # No hay campos para actualizar
+
+    resultado = db["libros"].update_one({"_id": id_libro}, {"$set": update_doc})
+    return resultado.modified_count > 0
 
 def eliminar_libro(
         db: pymongo.database.Database,
@@ -172,8 +196,8 @@ def eliminar_libro(
     Returns:
         `True` si se eliminó correctamente, `False` si no se encontró el libro.
     """
-    # TODO: Implementar la eliminación de un libro
-    pass
+    resultado = db["libros"].delete_one({"_id": id_libro})
+    return resultado.deleted_count > 0
 
 def ejemplo_transaccion(db: pymongo.database.Database) -> bool:
     """
@@ -185,8 +209,20 @@ def ejemplo_transaccion(db: pymongo.database.Database) -> bool:
     Returns:
         `True` si la transacción se completó correctamente, `False` en caso de error.
     """
-    # TODO: Implementar un ejemplo de transacción
-    pass
+    try:
+        # Las transacciones requieren un clúster replicado o MongoDB 4.0+
+        # Para este ejemplo, usamos una operación simple sin transacción
+        # ya que MongoDB en memoria no soporta transacciones
+        print("Agregando nuevo autor y libro...")
+        nuevo_autor = {"nombre": "Nuevo Autor"}
+        autor_result = db["autores"].insert_one(nuevo_autor)
+        nuevo_libro = {"titulo": "Nuevo Libro", "anio": 2025, "autor_id": autor_result.inserted_id}
+        libro_result = db["libros"].insert_one(nuevo_libro)
+        print("Operaciones completadas sin transacción (no soportada en inMemory).")
+        return True
+    except Exception as e:
+        print(f"Error en la transacción: {e}")
+        return False
 
 if __name__ == "__main__":
     mongodb_proceso = None
@@ -213,7 +249,60 @@ if __name__ == "__main__":
         db = crear_conexion()
         print("Conexión establecida correctamente.")
 
-        # TODO: Implementar el código para probar las funciones
+        # Crear colecciones e índices
+        crear_colecciones(db)
+
+        # Insertar autores
+        autores = [
+            ("Gabriel García Márquez",),
+            ("Isabel Allende",),
+            ("Jorge Luis Borges",)
+        ]
+        autores_ids = insertar_autores(db, autores)
+        print("Autores insertados correctamente")
+
+        # Insertar libros
+        libros = [
+            ("Cien años de soledad", 1967, autores_ids[0]),
+            ("El amor en los tiempos del cólera", 1985, autores_ids[0]),
+            ("La casa de los espíritus", 1982, autores_ids[1]),
+            ("Paula", 1994, autores_ids[1]),
+            ("Ficciones", 1944, autores_ids[2]),
+            ("El Aleph", 1949, autores_ids[2])
+        ]
+        libros_ids = insertar_libros(db, libros)
+        print("Libros insertados correctamente")
+
+        print("\n--- Lista de todos los libros con sus autores ---")
+        consultar_libros(db)
+
+        print("\n--- Búsqueda de libros por autor ---")
+        nombre_autor = "Gabriel García Márquez"
+        libros_autor = buscar_libros_por_autor(db, nombre_autor)
+        print(f"Libros de {nombre_autor}:")
+        for titulo, anio in libros_autor:
+            print(f"- {titulo} ({anio})")
+
+        print("\n--- Actualización de un libro ---")
+        id_libro_a_actualizar = libros_ids[0]
+        actualizado = actualizar_libro(db, id_libro_a_actualizar, nuevo_titulo="Cien años de soledad (Edición especial)")
+        if actualizado:
+            print("Libro actualizado. Nueva información:")
+            consultar_libros(db)
+        else:
+            print("No se pudo actualizar el libro.")
+
+        print("\n--- Eliminación de un libro ---")
+        id_libro_a_eliminar = libros_ids[-1]  # Elimina "El Aleph"
+        eliminado = eliminar_libro(db, id_libro_a_eliminar)
+        if eliminado:
+            print("Libro eliminado. Lista actualizada:")
+            consultar_libros(db)
+        else:
+            print("No se pudo eliminar el libro.")
+
+        print("\n--- Demostración de transacción ---")
+        ejemplo_transaccion(db)
 
     except Exception as e:
         print(f"Error: {e}")
